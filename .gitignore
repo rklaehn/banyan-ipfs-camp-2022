@@ -1,0 +1,6 @@
+/target
+/iroh_gateway/test_files/*
+.env
+Cargo.lock
+.DS_Store
+*~

@@ -1,5 +1,5 @@
 #![allow(clippy::redundant_clone)]
-use std::{ops::Range, time::Instant};
+use std::time::Instant;
 
 use banyan::{
     index::{Summarizable, UnitSeq},
@@ -117,18 +117,22 @@ fn custom_index_example(
 
     #[derive(Debug, Clone, PartialEq, Eq, libipld::DagCbor)]
     struct KeyRange {
-        min: u64, // inclusive
-        max: u64, // inclusive
+        /// inclusive
+        min: u64, 
+        /// inclusive
+        max: u64,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct RangeQuery {
-        min: u64, // inclusive
-        max: u64, // inclusive
+        /// inclusive
+        min: u64, 
+        /// inclusive
+        max: u64,
     }
 
     impl banyan::query::Query<IndexTT> for RangeQuery {
-        fn containing(&self, offset: u64, index: &index::LeafIndex<IndexTT>, res: &mut [bool]) {
+        fn containing(&self, _offset: u64, index: &index::LeafIndex<IndexTT>, res: &mut [bool]) {
             let keys = index.keys.as_ref();
             for (i, key) in keys.iter().enumerate() {
                 // true if the key is within range
@@ -136,7 +140,7 @@ fn custom_index_example(
             }
         }
 
-        fn intersecting(&self, offset: u64, index: &index::BranchIndex<IndexTT>, res: &mut [bool]) {
+        fn intersecting(&self, _offset: u64, index: &index::BranchIndex<IndexTT>, res: &mut [bool]) {
             let summaries = index.summaries.as_ref();
             for (i, summary) in summaries.iter().enumerate() {
                 // true if the summary range intersects with the query range
@@ -215,17 +219,20 @@ fn custom_index_example(
 
     // querying
     let mut sum = 0;
+    let mut n = 0;
     for item in txn.iter_filtered(
         &tree,
         RangeQuery {
-            min: 100,
+            min: 500,
             max: 1000,
         },
     ) {
-        let (i, k, v) = item?;
-        println!("{} {:?} {}", i, k, v);
+        let (_i, _k, v) = item?;
+        // println!("{} {:?} {}", i, k, v);
         sum += v;
+        n += 1;
     }
+    println!("{} {}", sum, n);
     Ok(())
 }
 

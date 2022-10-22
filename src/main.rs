@@ -2,62 +2,16 @@
 use std::time::Instant;
 
 use banyan::{
-    index::{Summarizable, UnitSeq},
     store::{BlockWriter, BranchCache, ReadOnlyStore},
     *,
 };
-use banyan_utils::tag_index::TagSet as ActyxTagSet;
-use banyan_utils::tags::Key as ActyxKey;
-use banyan_utils::tags::{Sha256Digest as ActyxLink, Sha256Digest, TT as ActyxTT};
-
-/// An example that is close to how banyan is used at actyx
-///
-/// The tree types are not exactly the same, the query capabilities in actyx are much more advances, but the general idea is the same.
-fn actyx_example(
-    store: impl ReadOnlyStore<ActyxLink> + BlockWriter<ActyxLink>,
-) -> anyhow::Result<()> {
-    // create some data in advance
-    let n = 1000000;
-    let xs = (0..n)
-        .map(|i| (ActyxKey::single(i, i, ActyxTagSet::empty()), i))
-        .collect::<Vec<_>>();
-
-    // setup
-    // create a forest with the actyx tree types
-    let forest = Forest::<ActyxTT, _>::new(store.clone(), BranchCache::new(1024));
-    // configure a tree builder with a reasonable tree config and default secrets (not secure)
-    let mut builder = StreamBuilder::new(Config::debug_fast(), Secrets::default());
-    // open a transaction.
-    // Since we use the same store for reading and for writing, we don't have to commit the transaction
-    // it is just a pair of a block reader and a block writer
-    let mut txn = Transaction::new(forest, store);
-
-    // writing
-    let t0 = Instant::now();
-    // in the transaction, add to the builder from the vec
-    txn.extend(&mut builder, xs)?;
-    // take a snapshot of the builder. We are writing straight to ipfs, so no need to commit the txn
-    let tree = builder.snapshot();
-    // now we have a persistent tree
-    println!("{:?} {}s", tree, t0.elapsed().as_secs_f64());
-
-    // reading
-    let mut sum = 0;
-    // iterate over all (offset, key, value) triples of the tree
-    for item in txn.iter_from(&tree) {
-        let (_i, _k, v) = item?;
-        sum += v;
-        // println!("{} {:?} {}", i, k, v);
-    }
-    println!("{}", sum);
-    Ok(())
-}
+use banyan_utils::tags::Sha256Digest;
 
 /// Example to use banyan as just an efficient compressed event sequence without any indexes
 ///
 /// You will only be able to access by index or query/stream by index range
 fn sequence_example(
-    store: impl ReadOnlyStore<ActyxLink> + BlockWriter<ActyxLink>,
+    store: impl ReadOnlyStore<Sha256Digest> + BlockWriter<Sha256Digest>,
 ) -> anyhow::Result<()> {
     #[derive(Debug, Clone)]
     struct SimpleTT;
@@ -65,8 +19,8 @@ fn sequence_example(
     impl banyan::TreeTypes for SimpleTT {
         type Key = (); // no keys
         type Summary = (); // no summaries
-        type KeySeq = UnitSeq; // a sequence of unit keys
-        type SummarySeq = UnitSeq; // a sequence of unit summaries
+        type KeySeq = banyan::index::UnitSeq; // a sequence of unit keys
+        type SummarySeq = banyan::index::UnitSeq; // a sequence of unit summaries
         type Link = Sha256Digest; // use a 32 byte sha256 digest as link
         const NONCE: &'static [u8; 24] = b"Simple example for camp.";
     }
@@ -110,7 +64,7 @@ fn sequence_example(
 ///
 /// You will only be able to access by index or query/stream by index range
 fn custom_index_example(
-    store: impl ReadOnlyStore<ActyxLink> + BlockWriter<ActyxLink>,
+    store: impl ReadOnlyStore<Sha256Digest> + BlockWriter<Sha256Digest>,
 ) -> anyhow::Result<()> {
     #[derive(Debug, Clone)]
     struct IndexTT;
@@ -118,7 +72,7 @@ fn custom_index_example(
     #[derive(Debug, Clone, PartialEq, Eq, libipld::DagCbor)]
     struct KeyRange {
         /// inclusive
-        min: u64, 
+        min: u64,
         /// inclusive
         max: u64,
     }
@@ -126,7 +80,7 @@ fn custom_index_example(
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct RangeQuery {
         /// inclusive
-        min: u64, 
+        min: u64,
         /// inclusive
         max: u64,
     }
@@ -140,7 +94,12 @@ fn custom_index_example(
             }
         }
 
-        fn intersecting(&self, _offset: u64, index: &index::BranchIndex<IndexTT>, res: &mut [bool]) {
+        fn intersecting(
+            &self,
+            _offset: u64,
+            index: &index::BranchIndex<IndexTT>,
+            res: &mut [bool],
+        ) {
             let summaries = index.summaries.as_ref();
             for (i, summary) in summaries.iter().enumerate() {
                 // true if the summary range intersects with the query range
@@ -149,6 +108,7 @@ fn custom_index_example(
         }
     }
 
+    // define our custom tree types
     impl banyan::TreeTypes for IndexTT {
         type Key = u64; // key is an integer (e.g. a time or a value)
         type Summary = KeyRange; // no summaries
@@ -158,7 +118,8 @@ fn custom_index_example(
         const NONCE: &'static [u8; 24] = b"Complex example for camp";
     }
 
-    impl Summarizable<KeyRange> for banyan::index::VecSeq<u64> {
+    /// Define how to create a summary from a sequence of values
+    impl banyan::index::Summarizable<KeyRange> for banyan::index::VecSeq<u64> {
         fn summarize(&self) -> KeyRange {
             let min = self.as_ref().iter().cloned().min().unwrap_or_default();
             let max = self.as_ref().iter().cloned().max().unwrap_or_default();
@@ -166,7 +127,8 @@ fn custom_index_example(
         }
     }
 
-    impl Summarizable<KeyRange> for banyan::index::VecSeq<KeyRange> {
+    /// Define how to create a summary from a sequence of summaries
+    impl banyan::index::Summarizable<KeyRange> for banyan::index::VecSeq<KeyRange> {
         fn summarize(&self) -> KeyRange {
             let min = self
                 .as_ref()
@@ -236,15 +198,59 @@ fn custom_index_example(
     Ok(())
 }
 
+/// An example that is close to how banyan is used at actyx
+///
+/// The tree types are not exactly the same, the query capabilities in actyx are much more advances, but the general idea is the same.
+fn actyx_example(
+    store: impl ReadOnlyStore<Sha256Digest> + BlockWriter<Sha256Digest>,
+) -> anyhow::Result<()> {
+    use banyan_utils::tag_index::TagSet as ActyxTagSet;
+    use banyan_utils::tags::{Key as ActyxKey, TT as ActyxTT};
+
+    // create some data in advance
+    let n = 1000000;
+    let xs = (0..n)
+        .map(|i| (ActyxKey::single(i, i, ActyxTagSet::empty()), i))
+        .collect::<Vec<_>>();
+
+    // setup
+    // create a forest with the actyx tree types
+    let forest = Forest::<ActyxTT, _>::new(store.clone(), BranchCache::new(1024));
+    // configure a tree builder with a reasonable tree config and default secrets (not secure)
+    let mut builder = StreamBuilder::new(Config::debug_fast(), Secrets::default());
+    // open a transaction.
+    // Since we use the same store for reading and for writing, we don't have to commit the transaction
+    // it is just a pair of a block reader and a block writer
+    let mut txn = Transaction::new(forest, store);
+
+    // writing
+    let t0 = Instant::now();
+    // in the transaction, add to the builder from the vec
+    txn.extend(&mut builder, xs)?;
+    // take a snapshot of the builder. We are writing straight to ipfs, so no need to commit the txn
+    let tree = builder.snapshot();
+    // now we have a persistent tree
+    println!("{:?} {}s", tree, t0.elapsed().as_secs_f64());
+
+    // reading
+    let mut sum = 0;
+    // iterate over all (offset, key, value) triples of the tree
+    for item in txn.iter_from(&tree) {
+        let (_i, _k, v) = item?;
+        sum += v;
+        // println!("{} {:?} {}", i, k, v);
+    }
+    println!("{}", sum);
+    Ok(())
+}
+
 fn main() -> anyhow::Result<()> {
-    // create a store that reads and writes from ipfs. Requires kubo (go-ipfs) on port 5001
+    // create a store that reads and writes from ipfs. Requires kubo (go-ipfs) compatible API on port 5001
     // let store = banyan_utils::ipfs::IpfsStore::new()?;
-    // create a store that reads and writes from memory
-    let store = banyan::store::MemStore::new(1000000000, ActyxLink::digest);
-    actyx_example(store.clone())?;
-
+    // create a store that reads and writes from memory, using Sha256Digest as link
+    let store = banyan::store::MemStore::new(1000000000, Sha256Digest::digest);
     sequence_example(store.clone())?;
-
     custom_index_example(store.clone())?;
+    actyx_example(store.clone())?;
     Ok(())
 }

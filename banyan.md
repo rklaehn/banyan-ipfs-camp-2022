@@ -2,23 +2,17 @@
 title: Banyan
 author: Rüdiger Klaehn
 theme: Copenhagen
-date: October 30, 2022
+date: October 29, 2022
 
 ---
-
-# About me
-
-- [Heavens Above GmbH](https://www.heavens-above.com/)
-  - telemetry archive for Columbus module of the ISS
-- [Actyx AG](https://www.actyx.com/)
-  - distributed event sourcing for factories
-- [n0.computer](n0.computer)
-  - fastest ipfs on any planet
-
 # This talk
 
 - what, not why
 - ask me in the hallway about why
+
+#  Actyx
+
+![](img/actyx.png)
 
 # Needs at Actyx
 
@@ -26,9 +20,7 @@ date: October 30, 2022
 - partition tolerant
 - [local first](https://martin.kleppmann.com/papers/local-first.pdf)
 - first small private swarms
-- then on global IPFS
-
-![Actyx](img/actyx.png)
+- then on global IPFS, so needs encryption
 
 # Requirements
 
@@ -37,12 +29,6 @@ date: October 30, 2022
 - indexed by offset, queriable by tags
 - compressed
 - encrypted
-
-# Content-addressed
-
-- data integrity
-- auditing
-- the right thing to do if you care about your data
 
 # Append only log
 
@@ -55,7 +41,7 @@ date: October 30, 2022
 - data at index `i`
 - index range `i..j`
 - time range `2020-01-01..2020-02-01`
-- tags `machine`, `order-1234`
+- tags `'machine'`, `'order-1234'`
 - boolean combination of the above (`&` and `|`)
 
 # Encryption
@@ -63,9 +49,7 @@ date: October 30, 2022
 - use [fast stream cipher](https://en.wikipedia.org/wiki/Salsa20)
 - separate secrets for keys and values
 
-![Encryption](img/encryption.png)
-
-# Compression
+---
 
 - compression has to happen before encryption
 - Use [zstd](https://datatracker.ietf.org/doc/html/rfc8878)
@@ -124,7 +108,9 @@ pub trait TreeTypes {
   - level 1 nodes are sequences of keys
   - level >1 nodes are sequences of summaries
 
-![TreeStructure](img/treestructure.png)
+---
+
+![](img/treestructure.png)
 
 # Block format as seen from ipfs
 
@@ -147,6 +133,8 @@ struct Node(
 
 # Example
 
-```rust
+[main.rs](https://github.com/rklaehn/banyan-ipfs-camp-2022/blob/master/src/main.rs)
 
-```
+- use banyan as just a sequence
+- use banyan like actyx does
+- use banyan with custom index

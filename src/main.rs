@@ -244,13 +244,20 @@ fn actyx_example(
     Ok(())
 }
 
-fn main() -> anyhow::Result<()> {
+fn run() -> anyhow::Result<()> {
     // create a store that reads and writes from ipfs. Requires kubo (go-ipfs) compatible API on port 5001
-    // let store = banyan_utils::ipfs::IpfsStore::new()?;
+    let store = banyan_utils::ipfs::IpfsStore::new()?;
     // create a store that reads and writes from memory, using Sha256Digest as link
-    let store = banyan::store::MemStore::new(1000000000, Sha256Digest::digest);
+    // let store = banyan::store::MemStore::new(1000000000, Sha256Digest::digest);
     sequence_example(store.clone())?;
     custom_index_example(store.clone())?;
     actyx_example(store.clone())?;
     Ok(())
+}
+
+fn main() -> anyhow::Result<()> {
+    run().map_err(|e| {
+        println!("Failed. You need a kubo compatible API on localhost port 5001\n\n");
+        e
+    })
 }

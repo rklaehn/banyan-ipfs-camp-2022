@@ -9,6 +9,10 @@ date: October 29, 2022
 
 - what, not why
 - ask me in the hallway about why
+- want to follow along:
+```
+git clone 
+```
 
 #  Actyx
 

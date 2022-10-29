@@ -13,6 +13,9 @@ use banyan_utils::tags::Sha256Digest;
 fn sequence_example(
     store: impl ReadOnlyStore<Sha256Digest> + BlockWriter<Sha256Digest>,
 ) -> anyhow::Result<()> {
+    let n = 1000000u64;
+    println!("Example 1: building sequence of {} blocks on banyan", n);
+
     #[derive(Debug, Clone)]
     struct SimpleTT;
 
@@ -26,7 +29,6 @@ fn sequence_example(
     }
 
     // create some data in advance
-    let n = 1000000u64;
     let xs = (0..n).map(|i| ((), i)).collect::<Vec<_>>();
 
     // setup
@@ -46,7 +48,7 @@ fn sequence_example(
     // take a snapshot of the builder. We are writing straight to ipfs, so no need to commit the txn
     let tree = builder.snapshot();
     // now we have a persistent tree
-    println!("{:?} {}s", tree, t0.elapsed().as_secs_f64());
+    println!("{:#?} {}s", tree, t0.elapsed().as_secs_f64());
 
     // reading
     let mut sum = 0;
@@ -57,6 +59,7 @@ fn sequence_example(
         // println!("{} {:?} {}", i, k, v);
     }
     println!("{}", sum);
+    println!();
     Ok(())
 }
 
@@ -66,6 +69,12 @@ fn sequence_example(
 fn custom_index_example(
     store: impl ReadOnlyStore<Sha256Digest> + BlockWriter<Sha256Digest>,
 ) -> anyhow::Result<()> {
+    let n = 1000000u64;
+    println!(
+        "Example 1: building sequence of {} blocks with custom index on banyan",
+        n
+    );
+
     #[derive(Debug, Clone)]
     struct IndexTT;
 
@@ -147,7 +156,6 @@ fn custom_index_example(
     }
 
     // create some data in advance
-    let n = 1000000u64;
     let xs = (0..n).map(|i| (i, i)).collect::<Vec<_>>();
 
     // setup
@@ -167,7 +175,7 @@ fn custom_index_example(
     // take a snapshot of the builder. We are writing straight to ipfs, so no need to commit the txn
     let tree = builder.snapshot();
     // now we have a persistent tree
-    println!("{:?} {}s", tree, t0.elapsed().as_secs_f64());
+    println!("{:#?} {}s", tree, t0.elapsed().as_secs_f64());
 
     // reading
     let mut sum = 0;
@@ -195,6 +203,7 @@ fn custom_index_example(
         n += 1;
     }
     println!("{} {}", sum, n);
+    println!();
     Ok(())
 }
 
@@ -204,11 +213,16 @@ fn custom_index_example(
 fn actyx_example(
     store: impl ReadOnlyStore<Sha256Digest> + BlockWriter<Sha256Digest>,
 ) -> anyhow::Result<()> {
+    let n = 1000000u64;
+    println!(
+        "Example 1: building sequence of {} blocks with actyx style index on banyan",
+        n
+    );
+
     use banyan_utils::tag_index::TagSet as ActyxTagSet;
     use banyan_utils::tags::{Key as ActyxKey, TT as ActyxTT};
 
     // create some data in advance
-    let n = 1000000;
     let xs = (0..n)
         .map(|i| (ActyxKey::single(i, i, ActyxTagSet::empty()), i))
         .collect::<Vec<_>>();
@@ -230,7 +244,7 @@ fn actyx_example(
     // take a snapshot of the builder. We are writing straight to ipfs, so no need to commit the txn
     let tree = builder.snapshot();
     // now we have a persistent tree
-    println!("{:?} {}s", tree, t0.elapsed().as_secs_f64());
+    println!("{:#?} {}s", tree, t0.elapsed().as_secs_f64());
 
     // reading
     let mut sum = 0;
@@ -241,14 +255,11 @@ fn actyx_example(
         // println!("{} {:?} {}", i, k, v);
     }
     println!("{}", sum);
+    println!();
     Ok(())
 }
 
-fn run() -> anyhow::Result<()> {
-    // create a store that reads and writes from ipfs. Requires kubo (go-ipfs) compatible API on port 5001
-    let store = banyan_utils::ipfs::IpfsStore::new()?;
-    // create a store that reads and writes from memory, using Sha256Digest as link
-    // let store = banyan::store::MemStore::new(1000000000, Sha256Digest::digest);
+fn run(store: impl ReadOnlyStore<Sha256Digest> + BlockWriter<Sha256Digest>) -> anyhow::Result<()> {
     sequence_example(store.clone())?;
     custom_index_example(store.clone())?;
     actyx_example(store.clone())?;
@@ -256,8 +267,17 @@ fn run() -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
-    run().map_err(|e| {
-        println!("Failed. You need a kubo compatible API on localhost port 5001\n\n");
-        e
-    })
+    // create a store that reads and writes from ipfs. Requires kubo (go-ipfs) compatible API on port 5001
+    let mut store = banyan_utils::ipfs::IpfsStore::new()?;
+    match store.put(vec![]) {
+        Ok(_) => {
+            println!("kubo seems to be available. Using kubo interface on port 5001");
+            run(store)
+        }
+        Err(_) => {
+            println!("kubo seems not to be available. Using in memory store");
+            let store = banyan::store::MemStore::new(1000000000, Sha256Digest::digest);
+            run(store)
+        }
+    }
 }

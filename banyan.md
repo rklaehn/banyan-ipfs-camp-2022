@@ -2,16 +2,15 @@
 title: Banyan
 author: Rüdiger Klaehn
 theme: Copenhagen
+lang: en
 date: October 29, 2022
 
 ---
-# This talk
-
-- what, not why
-- ask me in the hallway about why
-- want to follow along:
+# Repo
+![](img/repoqr.png)
 ```
-git clone 
+git clone git@github.com:rklaehn/banyan-ipfs-camp-2022.git
+cargo run
 ```
 
 #  Actyx
@@ -50,6 +49,7 @@ git clone
 
 # Encryption
 
+- put private data on public ipfs
 - use [fast stream cipher](https://en.wikipedia.org/wiki/Salsa20)
 - separate secrets for keys and values
 
@@ -77,6 +77,7 @@ git clone
   - actyx uses tags and time, but you can define your own summary type
 - deletion of ranges
 - **no** arbitrary insertion and deletion
+- like hypercore/dat with index on ipfs
 
 # Types
 

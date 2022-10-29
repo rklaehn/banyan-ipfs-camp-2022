@@ -136,6 +136,12 @@ struct Node(
   - very limiting compared to CBOR
   - don't care that much about canonicalization
 
+---
+
+- You can of course put dag-cbor data in banyan
+- all dag-cbor is valid raw cbor
+- you just don't have to
+
 # Example
 
 [main.rs](https://github.com/rklaehn/banyan-ipfs-camp-2022/blob/master/src/main.rs)
